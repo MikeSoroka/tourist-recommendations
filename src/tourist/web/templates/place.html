@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}{{ place.title }} - Tourist Recommendations{% endblock %}
+
+{% block breadcrumb %}
+{{ super() }}
+<li class="breadcrumb-item"><a href="{{ url_for('main.city_view', city_id=place.city.id) }}">{{ place.city.name }}</a></li>
+<li class="breadcrumb-item active">{{ place.title }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Main Content -->
+    <div class="col-lg-8">
+        <!-- Main Image and Gallery -->
+        <div class="card mb-4">
+            {% if place.images %}
+            <img id="mainImage" src="{{ url_for('main.serve_image', filename=place.images[0].image_filename) }}" 
+                 class="card-img-top place-main-img" alt="{{ place.title }}">
+            {% if place.images|length > 1 %}
+            <div class="card-body">
+                <div class="thumbnail-gallery">
+                    {% for image in place.images %}
+                    <img src="{{ url_for('main.serve_image', filename=image.image_filename) }}" 
+                         class="thumbnail" alt="Thumbnail"
+                         onclick="updateMainImage('{{ url_for('main.serve_image', filename=image.image_filename) }}')">
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% else %}
+            <div class="card-img-top place-main-img bg-secondary d-flex align-items-center justify-content-center">
+                <i class="fas fa-landmark fa-5x text-light"></i>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Place Information -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h1 class="card-title">{{ place.title }}</h1>
+                <div class="d-flex mb-3">
+                    <span class="me-3">
+                        <i class="fas fa-eye"></i> {{ place.pageviews_last_30_days or 0 }} views
+                    </span>
+                    <span class="me-3">
+                        <i class="fas fa-star"></i> {{ "%.2f"|format(place.wiki_relevance_score or 0) }} relevance
+                    </span>
+                    {% if place.categories %}
+                    <span>
+                        <i class="fas fa-tags"></i>
+                        {% for category in place.categories %}
+                        <span class="badge bg-secondary me-1">{{ category.name }}</span>
+                        {% endfor %}
+                    </span>
+                    {% endif %}
+                </div>
+                <p class="card-text">{{ place.description or 'No description available.' }}</p>
+                {% if place.full_url %}
+                <a href="{{ place.full_url }}" class="btn btn-outline-primary" target="_blank">
+                    <i class="fab fa-wikipedia-w"></i> Read on Wikipedia
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Similar Places Sidebar -->
+    <div class="col-lg-4">
+        <!-- Structural Similar Places -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Similar Places</h5>
+                <small class="text-muted">Based on structural information</small>
+            </div>
+            <div class="list-group list-group-flush">
+                {% for similar in structural_similar %}
+                <a href="{{ url_for('main.place_view', place_id=similar.similar_place.id) }}" 
+                   class="list-group-item list-group-item-action">
+                    <div class="d-flex">
+                        {% if similar.similar_place.images %}
+                        <img src="{{ url_for('main.serve_image', filename=similar.similar_place.images[0].image_filename) }}" 
+                             class="similar-place-img me-3" style="width: 100px;" alt="{{ similar.similar_place.title }}">
+                        {% else %}
+                        <div class="similar-place-img me-3 bg-secondary d-flex align-items-center justify-content-center" 
+                             style="width: 100px;">
+                            <i class="fas fa-landmark text-light"></i>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <h6 class="mb-1">{{ similar.similar_place.title }}</h6>
+                            <p class="mb-1"><small>{{ similar.similar_place.city.name }}</small></p>
+                            <small class="text-muted">
+                                Similarity: {{ "%.2f"|format(similar.similarity_score or 0) }}
+                            </small>
+                        </div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Image-based Similar Places (Same City) -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Visually Similar Places in {{ place.city.name }}</h5>
+                <small class="text-muted">Based on image analysis</small>
+            </div>
+            <div class="list-group list-group-flush">
+                {% for similar in image_similar_same_city %}
+                <a href="{{ url_for('main.place_view', place_id=similar.target_place.id) }}" 
+                   class="list-group-item list-group-item-action">
+                    <div class="d-flex">
+                        {% if similar.target_place.images %}
+                        <img src="{{ url_for('main.serve_image', filename=similar.target_place.images[0].image_filename) }}" 
+                             class="similar-place-img me-3" style="width: 100px;" alt="{{ similar.target_place.title }}">
+                        {% else %}
+                        <div class="similar-place-img me-3 bg-secondary d-flex align-items-center justify-content-center" 
+                             style="width: 100px;">
+                            <i class="fas fa-landmark text-light"></i>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <h6 class="mb-1">{{ similar.target_place.title }}</h6>
+                            <small class="text-muted">
+                                Similarity: {{ "%.2f"|format(similar.similarity_score or 0) }}
+                            </small>
+                        </div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Image-based Similar Places (Other Cities) -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Visually Similar Places in Other Cities</h5>
+                <small class="text-muted">Based on image analysis</small>
+            </div>
+            <div class="list-group list-group-flush">
+                {% for similar in image_similar_other_cities %}
+                <a href="{{ url_for('main.place_view', place_id=similar.target_place.id) }}" 
+                   class="list-group-item list-group-item-action">
+                    <div class="d-flex">
+                        {% if similar.target_place.images %}
+                        <img src="{{ url_for('main.serve_image', filename=similar.target_place.images[0].image_filename) }}" 
+                             class="similar-place-img me-3" style="width: 100px;" alt="{{ similar.target_place.title }}">
+                        {% else %}
+                        <div class="similar-place-img me-3 bg-secondary d-flex align-items-center justify-content-center" 
+                             style="width: 100px;">
+                            <i class="fas fa-landmark text-light"></i>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <h6 class="mb-1">{{ similar.target_place.title }}</h6>
+                            <p class="mb-1"><small>{{ similar.target_place.city.name }}</small></p>
+                            <small class="text-muted">
+                                Similarity: {{ "%.2f"|format(similar.similarity_score or 0) }}
+                            </small>
+                        </div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

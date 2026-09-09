@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Cities - Tourist Recommendations{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Explore Cities</h1>
+
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+    {% for card in cards %}
+    {% set city = card.city %}
+    <div class="col">
+        <div class="card h-100">
+            {% if card.cover %}
+            <img src="{{ url_for('main.serve_image', filename=card.cover) }}"
+                 class="card-img-top" alt="{{ city.name }}">
+            {% else %}
+            <div class="card-img-top bg-secondary d-flex align-items-center justify-content-center">
+                <i class="fas fa-city fa-3x text-light"></i>
+            </div>
+            {% endif %}
+            <div class="card-body">
+                <h5 class="card-title">{{ city.name }}</h5>
+                <p class="card-text">
+                    <small class="text-muted">{{ card.count }} places of interest</small>
+                </p>
+                <a href="{{ url_for('main.city_view', city_id=city.id) }}" class="btn btn-primary">
+                    Explore {{ city.name }}
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %} 

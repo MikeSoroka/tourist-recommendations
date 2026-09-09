@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}{{ city.name }} - Tourist Recommendations{% endblock %}
+
+{% block breadcrumb %}
+{{ super() }}
+<li class="breadcrumb-item active">{{ city.name }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>{{ city.name }}</h1>
+    <div class="dropdown">
+        <button class="btn btn-secondary dropdown-toggle" type="button" id="sortDropdown" data-bs-toggle="dropdown">
+            Sort by
+        </button>
+        <ul class="dropdown-menu">
+            <li>
+                <a class="dropdown-item {% if current_sort == 'wiki_relevance' %}active{% endif %}" 
+                   href="{{ url_for('main.city_view', city_id=city.id, sort='wiki_relevance') }}">
+                    Wiki Relevance
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item {% if current_sort == 'pagerank' %}active{% endif %}" 
+                   href="{{ url_for('main.city_view', city_id=city.id, sort='pagerank') }}">
+                    PageRank
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item {% if current_sort == 'pageviews' %}active{% endif %}" 
+                   href="{{ url_for('main.city_view', city_id=city.id, sort='pageviews') }}">
+                    Page Views
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+    {% for place in places %}
+    <div class="col">
+        <div class="card h-100">
+            {% if place.images %}
+            <img src="{{ url_for('main.serve_image', filename=place.images[0].image_filename) }}" 
+                 class="card-img-top" alt="{{ place.title }}">
+            {% else %}
+            <div class="card-img-top bg-secondary d-flex align-items-center justify-content-center">
+                <i class="fas fa-landmark fa-3x text-light"></i>
+            </div>
+            {% endif %}
+            <div class="card-body">
+                <h5 class="card-title">{{ place.title }}</h5>
+                <p class="card-text">
+                    {% if place.description %}
+                    {{ place.description[:150] }}...
+                    {% else %}
+                    No description available.
+                    {% endif %}
+                </p>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <small class="text-muted">
+                            <i class="fas fa-eye"></i> {{ place.pageviews_last_30_days or 0 }}
+                        </small>
+                        <small class="text-muted ms-2">
+                            <i class="fas fa-star"></i> {{ "%.2f"|format(place.wiki_relevance_score or 0) }}
+                        </small>
+                    </div>
+                    <a href="{{ url_for('main.place_view', place_id=place.id) }}" class="btn btn-primary">
+                        View Details
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %} 

@@ -1,0 +1,9 @@
+-r requirements.txt
+mpi4py==4.0.3
+numpy==1.26.4
+pandas==2.2.3
+scikit-learn==1.5.2
+opencv-python-headless==4.10.0.84
+Pillow==10.4.0
+networkx==3.3
+tqdm==4.66.5

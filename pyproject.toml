@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tourist-recommendations"
+version = "1.0.0"
+description = "Wikipedia-derived places of interest with PageRank and similarity"
+requires-python = ">=3.12"
+dynamic = ["dependencies"]
+
+[project.scripts]
+tourist-collect = "tourist.collection.collect:main"
+tourist-setup-db = "tourist.collection.db_setup:main"
+tourist-sync = "tourist.sync.cli:main"
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"tourist.web" = ["templates/*.html"]
+
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: requires a live PostgreSQL instance"]
+filterwarnings = [
+    "error::DeprecationWarning:tourist.*",
+    "error::sqlalchemy.exc.LegacyAPIWarning",
+]
