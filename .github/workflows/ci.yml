@@ -67,7 +67,7 @@ jobs:
         run: python -m tourist.collection.db_setup
 
       - name: Run tests
-        run: pytest -v
+        run: python -m pytest -v
 
   docker:
     runs-on: ubuntu-latest
