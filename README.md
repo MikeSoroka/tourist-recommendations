@@ -134,61 +134,37 @@ help.
 
 ## Keeping the snapshot fresh
 
-The collected data is a point-in-time snapshot of pages that keep changing, so
-two scheduled jobs keep it honest:
+The collected data is a point-in-time snapshot of pages that keep changing.
+Two scheduled jobs keep it current:
 
 ```bash
 python -m tourist.sync.cli detect     # compare stored revision ids against Wikipedia
 python -m tourist.sync.cli consume    # apply pending change events
-python -m tourist.sync.cli status     # queue depth and stale row count
+python -m tourist.sync.cli status     # queue depth, dead-lettered count, stale rows
 ```
 
 `detect` reads `last_revision_id` for every tracked page and asks the API for
 the current one, batched 50 ids per request. Only differences are published, so
 a steady state costs a handful of requests rather than a re-scrape. Each
-difference becomes an event on a Redis stream; `consume` applies it, records the
-new revision and stamps `stale_since`, which is what marks derived results as
-due for recomputation. Each analysis job clears the flag when it finishes, so
-`sync.cli status` shows how much of the snapshot is waiting on a recompute.
+difference becomes an event on a Redis stream. `consume` applies it, records the
+new revision and stamps `stale_since`, which marks derived results as due for
+recomputation; each analysis job clears the flag when it finishes.
 
-The two run on their own cadence — detection is cheap and frequent,
-recomputation is slow and expensive — and the stream decouples them so a slow
-recompute never blocks or drops a detection cycle. ### Why Redis Streams
-
-Kafka's value is partitioned throughput, long retention and many independent
-consumer groups; this pipeline tracks a few hundred pages and emits tens of
-events a day, so that capacity would be paid for in operational weight and not
-used. RabbitMQ is the closer call and would supply dead-letter exchanges and
-delivery counts natively rather than built from `XPENDING`.
-
-Redis Streams win here because the queue is not the source of truth. Events are
-derived by comparing `last_revision_id` in PostgreSQL against Wikipedia, and
-that column only advances once a consumer applies the change, so a lost event is
-simply re-detected on the next cycle: losing the whole stream costs one
-detection interval, not data. Both handlers are idempotent in SQL as well, so
-the deduplication set is an optimisation rather than a correctness requirement.
-With the durability bar that low, consumer groups already provide what is
-needed, and Redis is here for the cache regardless.
-
-The trade-off is deliberate: swapping in RabbitMQ means rewriting `broker.py`
-and nothing else, because the retry and dead-letter policy lives in the
-consumer.
+Events flow through a Redis Streams consumer group (`XREADGROUP` / `XACK`).
+Detection and recomputation run on their own cadence, so a slow recompute never
+blocks or drops a detection cycle. Events are derived by comparing PostgreSQL
+against Wikipedia and the stored revision only advances once a consumer applies
+the change, so a lost event is re-detected on the next cycle.
 
 Delivery is at least once, so the consumer is idempotent: events carry a
 `type:page_id:revision_id` key and an already-applied change is acknowledged
-without being reapplied. A new revision of the same page has a different key and
-is applied normally.
+without being reapplied. Each event commits in its own transaction. An entry
+that keeps failing is retried until `STREAM_MAX_DELIVERIES` and then parked on
+a dead-letter stream with the reason. Entries a crashed consumer read but never
+acknowledged are reclaimed with `XAUTOCLAIM` after `STREAM_IDLE_RECLAIM_MS`.
 
-Each event commits in its own transaction, so one failure neither rolls back
-its neighbours nor stalls the batch. An entry that keeps failing is retried
-until `STREAM_MAX_DELIVERIES` and then parked on a dead-letter stream with the
-reason — without that, a single unprocessable event is a poison message that
-blocks the queue forever. `sync.cli status` reports queue depth, dead-lettered
-count and stale rows.
-
-In compose this runs as the `detector` and `refresher` services. A real
-deployment can drop both and call the same commands from cron or a Kubernetes
-CronJob; nothing depends on the supervisor loop.
+In compose this runs as the `detector` and `refresher` services; the same
+commands can be driven from cron or a Kubernetes CronJob instead.
 
 ## Caching
 
